@@ -478,7 +478,7 @@ function fachBar(){
   const b=(k,lab)=>`<button class="fachbtn ${cur===k?'on':''}" data-fach="${esc(k)}">${lab}</button>`;
   return`<div class="fachbar">${b('Alle','Alle')}${fs.map(f=>b(f,(FACH_EMOJI[f]?FACH_EMOJI[f]+' ':'')+esc(f))).join('')}</div>`;
 }
-function bindFach(){screen.querySelectorAll('[data-fach]').forEach(b=>b.onclick=()=>{haptic();DB.settings.fach=b.dataset.fach;save();render()})}
+function bindFach(){screen.querySelectorAll('[data-fach]').forEach(b=>b.onclick=()=>{haptic();DB.settings.fach=b.dataset.fach;saveAndSync();render()})}
 
 /* ================= SRS (SM-2 modifiziert) ================= */
 /* ===== Intelligente Features: Settings-Helfer (alle Default AUS) ===== */
@@ -707,7 +707,7 @@ function rDecks(){
   bindCommon();
   screen.querySelectorAll('[data-fachtoggle]').forEach(el=>el.onclick=(e)=>{
     if(e.target.closest('[data-fachlearn]'))return;
-    haptic();const f=el.dataset.fachtoggle;open[f]=open[f]===false?true:false;save();render();
+    haptic();const f=el.dataset.fachtoggle;open[f]=open[f]===false?true:false;saveAndSync();render();
   });
   screen.querySelectorAll('[data-fachlearn]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();haptic();startStudyFach(b.dataset.fachlearn);});
   $('addD')&&($('addD').onclick=()=>deckSheet());
@@ -896,7 +896,7 @@ function renderEmotionStep(){
     <button class="emo-btn" data-e="0">🔥<small>interessant</small></button>
     <button class="emo-btn" data-e="1">😴<small>langweilig</small></button>
     <button class="emo-btn" data-e="2">😤<small>frustrierend</small></button></div>`;
-  a.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{const e=+b.dataset.e;if(!study.free){applyEmotionalBonus(study.items[0].c,e);save()}advanceCard(study._lastR)});
+  a.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{const e=+b.dataset.e;if(!study.free){applyEmotionalBonus(study.items[0].c,e);saveAndSync()}advanceCard(study._lastR)});
 }
 function advanceCard(r){
   haptic();
@@ -987,14 +987,14 @@ function rMore(){
     <button class="menu-item danger" id="mReset"><span class="mi">🗑️</span><span>Alle Daten löschen<small>Kann nicht rückgängig gemacht werden</small></span></button>
   </div></div>
   <p style="text-align:center;color:var(--txt3);font-size:10px;margin-top:6px;font-family:var(--mono);letter-spacing:.1em">CARDS · ${syncConfigured()?'SYNC AKTIV':'100% OFFLINE'} · DATEN BLEIBEN LOKAL</p>`;
-  screen.querySelectorAll('[data-sf]').forEach(b=>b.onclick=()=>{const k=b.dataset.sf;SF()[k]=!SF()[k];save();render();toast((SF()[k]?'Aktiviert: ':'Deaktiviert: ')+b.dataset.lbl,'ok')});
+  screen.querySelectorAll('[data-sf]').forEach(b=>b.onclick=()=>{const k=b.dataset.sf;SF()[k]=!SF()[k];saveAndSync();render();toast((SF()[k]?'Aktiviert: ':'Deaktiviert: ')+b.dataset.lbl,'ok')});
   $('thBtn').onclick=toggleTheme;$('mTheme').onclick=toggleTheme;
   $('mExpAll').onclick=()=>{dl('cards-backup-'+dkey()+'.json',JSON.stringify({type:'cards-backup',v:2,decks:DB.decks}));toast('Backup exportiert','ok')};
   $('mExpDeck').onclick=shareSheet;
   $('mImp').onclick=importFile;
   $('mCsv').onclick=csvSheet;
-  $('mNew').onclick=()=>{const v=prompt('Wie viele neue Karten pro Tag und Stapel?',DB.settings.newPerDay||20);if(v&&+v>0){DB.settings.newPerDay=Math.min(500,+v);save();render();toast('Gespeichert','ok')}};
-  $('mReset').onclick=()=>{if(confirm('WIRKLICH alle Stapel, Karten und Statistiken löschen?')&&confirm('Letzte Chance — sicher?')){const th=DB.settings.theme;DB={decks:[],log:{},settings:{theme:th,newPerDay:20}};save();toast('Zurückgesetzt','ok');render()}};
+  $('mNew').onclick=()=>{const v=prompt('Wie viele neue Karten pro Tag und Stapel?',DB.settings.newPerDay||20);if(v&&+v>0){DB.settings.newPerDay=Math.min(500,+v);saveAndSync();render();toast('Gespeichert','ok')}};
+  $('mReset').onclick=()=>{if(confirm('WIRKLICH alle Stapel, Karten und Statistiken löschen?')&&confirm('Letzte Chance — sicher?')){const th=DB.settings.theme;DB={decks:[],log:{},settings:{theme:th,newPerDay:20}};saveAndSync();toast('Zurückgesetzt','ok');render()}};
   $('mSyncSetup').onclick=syncSetupSheet;
   if(syncConfigured()){
     $('mSyncDown')&&($('mSyncDown').onclick=syncDown);
@@ -1080,7 +1080,7 @@ function deckSheet(id){
     const name=$('dN').value.trim();if(!name)return $('dN').focus();
     if(d){d.name=name;d.desc=$('dD').value.trim();d.emoji=sel.e;d.color=sel.c}
     else{const nd={id:uid(),name,desc:$('dD').value.trim(),emoji:sel.e,color:sel.c,cards:[],created:Date.now()};DB.decks.push(nd);curDeck=nd}
-    save();closeSheet();toast(d?'Gespeichert':'Stapel erstellt','ok');render();
+    saveAndSync();closeSheet();toast(d?'Gespeichert':'Stapel erstellt','ok');render();
   };
 }
 
@@ -1094,8 +1094,8 @@ function deckMenuSheet(d){
   </div></div>`);
   $('dmEdit').onclick=()=>deckSheet(d.id);
   $('dmShare').onclick=()=>{exportDeck(d);closeSheet()};
-  $('dmReset').onclick=()=>{if(confirm('Lernfortschritt aller Karten zurücksetzen?')){d.cards.forEach(c=>{c.reps=0;c.ease=2.5;c.interval=0;c.due=today();delete c.last;delete c.learning});save();closeSheet();toast('Zurückgesetzt','ok');render()}};
-  $('dmDel').onclick=()=>{if(confirm(`„${d.name}" mit ${d.cards.length} Karten löschen?`)){DB.decks=DB.decks.filter(x=>x.id!==d.id);save();closeSheet();curDeck=null;toast('Gelöscht','ok');render()}};
+  $('dmReset').onclick=()=>{if(confirm('Lernfortschritt aller Karten zurücksetzen?')){d.cards.forEach(c=>{c.reps=0;c.ease=2.5;c.interval=0;c.due=today();delete c.last;delete c.learning});saveAndSync();closeSheet();toast('Zurückgesetzt','ok');render()}};
+  $('dmDel').onclick=()=>{if(confirm(`„${d.name}" mit ${d.cards.length} Karten löschen?`)){DB.decks=DB.decks.filter(x=>x.id!==d.id);saveAndSync();closeSheet();curDeck=null;toast('Gelöscht','ok');render()}};
 }
 
 function cardSheet(id){
@@ -1118,11 +1118,11 @@ function cardSheet(id){
     const tags=$('cT').value.split(',').map(t=>t.trim().toLowerCase()).filter(Boolean);
     if(c){c.q=q;c.a=a;c.tags=tags}
     else d.cards.push({id:uid(),q,a,tags,reps:0,ease:2.5,interval:0,due:today(),created:Date.now()});
-    save();return true;
+    saveAndSync();return true;
   };
   $('cSave').onclick=()=>{if(doSave()){closeSheet();toast(c?'Gespeichert':'Karte hinzugefügt','ok');render()}};
   $('cMore')&&($('cMore').onclick=()=>{if(doSave()){$('cQ').value='';$('cA').value='';$('cT').value='';$('cQ').focus();toast('Hinzugefügt — nächste','ok')}});
-  $('cDel')&&($('cDel').onclick=()=>{if(confirm('Karte löschen?')){d.cards=d.cards.filter(x=>x.id!==c.id);save();closeSheet();toast('Gelöscht','ok');render()}});
+  $('cDel')&&($('cDel').onclick=()=>{if(confirm('Karte löschen?')){d.cards=d.cards.filter(x=>x.id!==c.id);saveAndSync();closeSheet();toast('Gelöscht','ok');render()}});
 }
 
 function csvSheet(){
@@ -1143,7 +1143,7 @@ function csvSheet(){
       if(p.length>=2&&p[0]&&p[1]){d.cards.push(mkCard(p[0],p.slice(1).join(' — ')));n++}
       else if(/\{\{.+?\}\}/.test(l)){d.cards.push(mkCard(l,''));n++}
     });
-    save();closeSheet();n?toast(`${n} Karten importiert`,'ok'):toast('Keine gültigen Zeilen gefunden','err');render();
+    saveAndSync();closeSheet();n?toast(`${n} Karten importiert`,'ok'):toast('Keine gültigen Zeilen gefunden','err');render();
   };
 }
 const mkCard=(q,a,tags)=>({id:uid(),q,a,tags:tags||[],reps:0,ease:2.5,interval:0,due:today(),created:Date.now()});
@@ -1167,7 +1167,7 @@ function importFile(){
       if((data.type==='cards-deck'||data.type==='karteikarten-deck')&&data.deck){addDeck(data.deck);toast(`„${data.deck.name}" importiert`,'ok')}
       else if((data.type==='cards-backup'||data.type==='karteikarten-backup')&&Array.isArray(data.decks)){data.decks.forEach(addDeck);toast(`${data.decks.length} Stapel importiert`,'ok')}
       else toast('Unbekanntes Format','err');
-      save();closeSheet();render();
+      saveAndSync();closeSheet();render();
     }catch(e){toast('Datei nicht lesbar','err')}};
     r.readAsText(f)};
   inp.click();
@@ -1190,7 +1190,7 @@ function themeIcon(){const t=document.body.dataset.theme;
   return t==='dark'
   ?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>'
   :'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>'}
-function setTheme(t){document.body.dataset.theme=t;DB.settings.theme=t;save();document.querySelector('meta[name=theme-color]').content=THEME_COLOR[t]||'#0c0c0d';render();closeSheet()}
+function setTheme(t){document.body.dataset.theme=t;DB.settings.theme=t;saveAndSync();document.querySelector('meta[name=theme-color]').content=THEME_COLOR[t]||'#0c0c0d';render();closeSheet()}
 function toggleTheme(){setTheme(THEME_NEXT[document.body.dataset.theme]||'dark')}
 
 /* keyboard (desktop) */
