@@ -694,7 +694,8 @@ function rDecks(){
         ${chev}
         <span class="femoji">${FACH_EMOJI[f]||'📚'}</span>
         <div class="fmeta"><h3>${esc(f)}</h3><div class="finfo">${fd.length} Stapel · ${cards} Karten</div></div>
-        ${due>0?`<button class="flearn" data-fachlearn="${esc(f)}">${due} lernen →</button>`:''}<button class="flearn flearn-free" data-fachfree="${esc(f)}" style="background:var(--surface3);color:var(--txt2);border:1px solid var(--line2);margin-left:4px">${due>0?'':'✓ '}Üben</button>
+        ${due>0?`<button class="flearn" data-fachlearn="${esc(f)}">${due} lernen →</button>`:''}
+        ${(()=>{const total=fd.reduce((a,d)=>a+d.cards.length,0);const reviewed=fd.reduce((a,d)=>a+d.cards.filter(c=>c.reviewed).length,0);const left=total-reviewed;return `<button class="flearn flearn-free" data-fachfree="${esc(f)}" style="background:var(--surface3);color:var(--txt2);border:1px solid var(--line2);margin-left:4px">${reviewed>0&&left>0?left+' wiederholen →':reviewed===total?'↺ Neu starten':'Wiederholen'}</button>`})()}
       </div>
       ${isOpen?`<div class="deck-list">${fd.map(deckTile).join('')}</div>`:''}
     </div>`;
@@ -766,7 +767,7 @@ function crow(c){
 function bindRows(){screen.querySelectorAll('[data-c]').forEach(r=>r.onclick=()=>cardSheet(r.dataset.c))}
 
 /* ================= STUDY ================= */
-function newStudy(items,name,free){return {items,total:items.length,done:0,good:0,again:0,flipped:false,confidence:null,free:!!free,name,start:Date.now(),interleaved:SF().interleave,_warned:false,_await:null}}
+function newStudy(items,name,free,mode){return {items,total:items.length,done:0,good:0,again:0,flipped:false,confidence:null,free:!!free,mode:mode||'srs',name,start:Date.now(),interleaved:SF().interleave,_warned:false,_await:null}}
 function startStudy(deck,queue){
   if(!queue.length)return toast('Keine Karten','err');
   shuffle(queue);
@@ -789,10 +790,25 @@ function startStudyFach(f){
   render();
 }
 function freeStartFach(f){
-  const cards=[];DB.decks.filter(d=>(d.fach||'Allgemein')===f).forEach(d=>d.cards.forEach(c=>cards.push({c,deck:d})));
+  const decks=DB.decks.filter(d=>(d.fach||'Allgemein')===f);
+  let cards=[];decks.forEach(d=>d.cards.forEach(c=>cards.push({c,deck:d})));
   if(!cards.length)return toast('Keine Karten gefunden','err');
-  shuffle(cards);
-  study=newStudy(cards,f+' · Üben',true);
+  // Fortschritt: noch nicht reviewed in dieser Runde
+  const pending=cards.filter(({c})=>!c.reviewed);
+  const done=cards.length-pending.length;
+  if(!pending.length){
+    // Alle durch -> Reset und neu starten
+    decks.forEach(d=>d.cards.forEach(c=>delete c.reviewed));
+    saveAndSync();
+    toast('Alle wiederholt — starte von vorne!','ok');
+    cards.forEach(({c})=>delete c.reviewed);
+    shuffle(cards);
+    study=newStudy(cards,f+' · Wiederholen',false,'review');
+  } else {
+    if(done>0)toast(`Fortschritt: ${done}/${cards.length} bereits wiederholt`,'ok');
+    shuffle(pending);
+    study=newStudy(pending,f+' · Wiederholen',false,'review');
+  }
   render();
 }
 function freeStart(d){
@@ -910,7 +926,10 @@ function advanceCard(r){
   haptic();
   const it=study.items.shift();
   study.done++;r===0?study.again++:study.good++;
-  if(r===0&&!study.free){it._re=true;study.items.splice(Math.min(study.items.length,3+Math.floor(Math.random()*3)),0,it)}
+  if(study.mode==='review'){
+    if(r===0){it._re=true;study.items.splice(Math.min(study.items.length,3+Math.floor(Math.random()*3)),0,it)}
+    else{it.c.reviewed=Date.now();saveAndSync();}
+  } else if(r===0&&!study.free){it._re=true;study.items.splice(Math.min(study.items.length,3+Math.floor(Math.random()*3)),0,it)}
   study.flipped=false;study.confidence=null;
   const fc=$('fc');
   if(fc&&study.items.length){fc.classList.add('slide-out');setTimeout(render,150)}else render();
