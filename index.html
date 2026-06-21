@@ -694,7 +694,7 @@ function rDecks(){
         ${chev}
         <span class="femoji">${FACH_EMOJI[f]||'📚'}</span>
         <div class="fmeta"><h3>${esc(f)}</h3><div class="finfo">${fd.length} Stapel · ${cards} Karten</div></div>
-        ${due>0?`<button class="flearn" data-fachlearn="${esc(f)}">${due} lernen →</button>`:`<span class="ok-chip">✓</span>`}
+        ${due>0?`<button class="flearn" data-fachlearn="${esc(f)}">${due} lernen →</button>`:''}<button class="flearn flearn-free" data-fachfree="${esc(f)}" style="background:var(--surface3);color:var(--txt2);border:1px solid var(--line2);margin-left:4px">${due>0?'':'✓ '}Üben</button>
       </div>
       ${isOpen?`<div class="deck-list">${fd.map(deckTile).join('')}</div>`:''}
     </div>`;
@@ -710,6 +710,7 @@ function rDecks(){
     haptic();const f=el.dataset.fachtoggle;open[f]=open[f]===false?true:false;saveAndSync();render();
   });
   screen.querySelectorAll('[data-fachlearn]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();haptic();startStudyFach(b.dataset.fachlearn);});
+  screen.querySelectorAll('[data-fachfree]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();haptic();freeStartFach(b.dataset.fachfree);});
   $('addD')&&($('addD').onclick=()=>deckSheet());
   $('firstDeck')&&($('firstDeck').onclick=()=>deckSheet());
 }
@@ -785,6 +786,13 @@ function startStudyFach(f){
   if(!items.length)return toast('Nichts fällig in '+f,'ok');
   items=orderQueue(items);                          // Interleaving (ON) oder blockweise (OFF)
   study=newStudy(items,f);
+  render();
+}
+function freeStartFach(f){
+  const cards=[];DB.decks.filter(d=>(d.fach||'Allgemein')===f).forEach(d=>d.cards.forEach(c=>cards.push({c,deck:d})));
+  if(!cards.length)return toast('Keine Karten gefunden','err');
+  shuffle(cards);
+  study=newStudy(cards,f+' · Üben',true);
   render();
 }
 function freeStart(d){
