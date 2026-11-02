@@ -443,10 +443,7 @@ async function syncDown(){
   // Merge: behalte lokalen Stand falls remote leer ist
   DB=remote;
   const seed=readSeed();
-  if(seed){
-    const byId={};DB.decks.forEach(d=>d.cards.forEach(c=>byId[c.id]=c));
-    seed.decks.forEach(sd=>sd.cards.forEach(sc=>{const ec=byId[sc.id];if(ec&&sc.explain&&!ec.explain)ec.explain=sc.explain;}));
-  }
+  if(seed){mergeSeed(DB,seed);DB._seedV=SEED_V;}
   save();render();toast('✅ Sync abgeschlossen','ok');
 }
 
